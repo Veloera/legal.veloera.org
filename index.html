@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Veloera Legal Doc Suite</title>
+  <style>
+    html,body{height:100%;}
+    body{
+      margin:0;
+      background:#000;
+      color:#fff;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", Helvetica, "Noto Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height:1.6;
+    }
+    main{max-width: 900px; margin: 2rem auto; padding: 0 1rem;}
+    a{color:inherit; text-decoration:underline;}
+    pre{overflow:auto; padding:1rem; background:#111; border:1px solid #222;}
+    code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;}
+    img{max-width:100%; height:auto;}
+  </style>
+  <!-- 引入 Marked CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <main id="app">
+    <noscript>JavaScript is required to load this page.</noscript>
+  </main>
+
+  <script>
+    // ==== 配置：将此处替换为你的固定前缀，确保以 "/" 结尾 ====
+    const BASE_URL = "https://raw.githubusercontent.com/Veloera/legal.veloera.org/refs/heads/main/"; // ← 修改为你的 base
+    // ===========================================================
+
+    const qs = new URLSearchParams(location.search);
+    const rawPath = (qs.get("path") || "").trim();
+
+    function sanitizePath(p) {
+      let s = p.replace(/\.\./g, "");
+      s = s.replace(/[^a-zA-Z0-9/_-]/g, "");
+      s = s.replace(/\/{2,}/g, "/").replace(/^\/+|\/+$/g, "");
+      return s;
+    }
+
+    const path = sanitizePath(rawPath || "README");
+    const url = BASE_URL + path + ".md";
+
+    const app = document.getElementById("app");
+
+    // 提取 front-matter title
+    function extractFrontMatterTitle(md) {
+      const fm = md.match(/^---\n([\s\S]*?)\n---/);
+      if (fm) {
+        const lines = fm[1].split(/\r?\n/);
+        for (const l of lines) {
+          const m = l.match(/^title:\s*(.+)$/i);
+          if (m) return m[1].trim();
+        }
+      }
+      return null;
+    }
+
+    // 提取第一个 h1
+    function extractFirstH1(md) {
+      const m = md.match(/^#\s+(.+)$/m);
+      return m ? m[1].trim() : null;
+    }
+
+    async function main() {
+      app.innerHTML = `<p>Loading: <code>${url}</code></p>`;
+      try {
+        const res = await fetch(url, { credentials: "omit" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        let text = await res.text();
+
+        // 解析标题
+        let title = extractFrontMatterTitle(text) || extractFirstH1(text);
+        if (title) document.title = title;
+
+        // 去掉 front-matter 再渲染
+        text = text.replace(/^---\n[\s\S]*?\n---/, "");
+
+        const html = marked.parse(text);
+        app.innerHTML = html;
+      } catch (err) {
+        app.innerHTML = `
+          <h2>Failed to fetch</h2>
+          <p>addr: <code>${url}</code></p>
+          <pre><code>${String(err)}</code></pre>
+        `;
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>
